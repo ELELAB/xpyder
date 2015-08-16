@@ -1,0 +1,278 @@
+#!/usr/bin/python
+
+#TRAJTOOLS#
+
+#  Copyright (C) 2006 Marco Pasi <fgbodci@tiscali.it> 
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+
+# "t_pdssp v0.1 (C) 2006 Marco Pasi"
+# Persistency Degree of Secondary Structure: PDSSP
+# 07/22/06 15:27:56 CEST v.0.1.1:
+#    * added support for chainID in dssp file
+#    * added user-friendly info on file-parsing
+import os
+import sys
+import re
+import string
+import signal
+import getopt
+import math
+import time
+import parser
+
+VERSION="0.1.1";
+NAME="t_pdssp";
+
+XPM_COMMENTS_RE=re.compile('\/\*.*?\*\/')
+XPM_DATA_RE=re.compile('[EBSTHIG~]+$')
+#                   seq_num--res_num--------chain------- res-----  ss---------- 
+DSSP_RE=re.compile('[ 0-9]{5}[ 0-9A-Za-z]{6}[A-Za-z0-9 ] [A-Za-z]  ([EBSTHIG ]).*$')
+SS="EBSTHIG~"
+DEFAULT_XPM="ss.xpm"
+DEFAULT_DSSP="ss.dssp"
+
+# parse xpm -> matrix
+# foreach row:
+#     calculate most frequent -> % in t
+#         # only lines containing data
+#         if not line.startswith("\""): continue
+
+def parse_dssp(dssp):
+    """
+    Return a table with main SS and percentage
+    """
+    ret=[]
+    fd=file(dssp, 'r')
+    line="/*cycle starter*/"
+    while len(line) > 0:
+        line=fd.readline()
+        match = DSSP_RE.match(line)
+        if not match: continue
+        ret.append((match.group(1).replace(" ","~"), 100))
+    fd.close()
+    print "DSSP(%s): %d values"%(dssp, len(ret))
+    return ret
+
+def parse_xpm(xpm):
+    """
+    Parse an xpm file to extract a matrix (array of arrays)
+    """
+    matrix=[]
+    fd=file(xpm, 'r')
+    line="/*cycle starter*/"
+    while len(line) > 0:
+        line=fd.readline()
+        # strip comments
+        line=XPM_COMMENTS_RE.sub("", line)
+        if len(line) <= 1: continue
+        # remove syntax chars
+        line=line.replace("\"","").replace(",","")
+        # only lines containing data
+        if not XPM_DATA_RE.match(line): continue
+        matrix.append(line.strip())
+    fd.close()
+    matrix.reverse()
+    print "XPM(%s): %d values"%(xpm, len(matrix))
+    return matrix
+
+def get_mean(xpm, b=0, e=-1, dt=1):
+    """
+    Return a table with main SS and percentage
+    """
+    ret=[]
+    for i in range(len(xpm)):
+        if e == -1:
+            e = len(xpm[i])
+        M = [xpm[i][j] for j in range(b, e, dt)]
+        ssmax=-100
+        mean=""
+        tot=float(len(M))
+        for ss in SS[:]:
+            sstmp = M.count(ss)
+            if sstmp > ssmax:
+                #print "%d: max is %s (%f > %f [%f])"%(i+1,ss,sstmp,ssmax,sstmp/tot*100)
+                ssmax=sstmp
+                mean=ss
+        ret.append((mean,ssmax/tot*100))
+    return ret
+
+def mean_file(multi_pdss):
+    """
+    Write the xvg file containing means and percentages
+    """
+    lines=[]
+    table=zip(*multi_pdss)
+    lines.append("# PDSSP\n")
+    lines.append("# groID\tSS\tpdegree\t[...]\n")
+    for i in range(len(table)):
+        S="%d"%(i+1)
+        for mean, perc in table[i]:
+            S+="\t%s\t%.2f"%(mean,perc)
+        lines.append("%s\n"%S)
+    return lines
+
+def append_pdss(table, pdss):
+    """
+    Append pdss to table, performing some integrity checks
+    """
+    # CHECK TABLE LENGTH
+    if len(table) > 0:
+        DELTA=len(table[-1])-len(pdss)
+        if DELTA > 0 :
+            sys.stderr.write("Warning: normalizing lengths (%d)\n"%DELTA)
+            # less residues in pdss, add empty
+            for i in range(DELTA):
+                pdss.append(("~",100.0))
+        elif DELTA < 0:
+            # less residues in table, add empty to all
+            sys.stderr.write("Warning: normalizing lengths (%d)\n"%DELTA)
+            for pd in table:
+                for i in range(-DELTA):
+                    pd.append(("~",100.0))
+    table.append(pdss)
+    return table
+
+def give_help():
+    print """
+    Usage: pdssp -x XPMFILE -d DSSPFILE [...]
+        Print a PDSSP xvg file from data contained
+        in XPMFILE (do_dssp -o) or DSSPFILE (dssp output);
+        Multiple files can be specified, but must refer
+        to the same sequence.
+    """
+
+def give_header():
+    print "\n                 * * *  T R A J T O O L S  * * *"
+    print ""
+    print "                   Molecular Modelling Laboratory,"
+    print "            Department of Biosciences and Biotechnology,"
+    print "                  Milano-Bicocca University, Italy."
+    print ""
+    print "     All TRAJTOOLS script are free you can redistribute it and/or"
+    print "     modify it it under the terms of the GNU General Public License "
+    print "            as published by the Free Software Foundation"
+    print " either version 2 of the License, or (at your option) any later version.\n\n"
+
+    print "                      %s version %s\n"%(NAME, VERSION)
+    
+
+def main():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "b:e:s:d:h?x:o:", ['help', 'version'])
+    except:
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+    headinfo = "# TRAJTOOLS %s version %s\n# %s %s\n"%(NAME,VERSION,NAME," ".join(sys.argv[1:]))
+    # "# Launched by "+'USER'+" - "+'DATE'+"\n"+'# PWD'
+    xpms=[]
+    dssps=[]
+    out="out.pdssp"
+    help = False
+    b=0
+    e=-1
+    dt=1
+    
+    # XXX long options: help, version
+    for opt, optarg in opts:
+        if opt == "-b":
+            try:
+                b = int(optarg)
+            except:
+                sys.stderr.write("WARNING: Incompatible value specified for -b (%s). Using default value %d!\n"%(optarg, b))
+        if opt == "-e":
+            try:
+                e = int(optarg)
+            except:
+                sys.stderr.write("WARNING: Incompatible value specified for -e (%s). Using default value %d!\n"%(optarg, e))
+        if opt == "-s":
+            try:
+                dt = int(optarg)
+            except:
+                sys.stderr.write("WARNING: Incompatible value specified for -s (%s). Using default value %d!\n"%(optarg, dt))
+        if opt == "-d":
+            dssps.append(optarg)
+        elif opt == "-x":
+            xpms.append(optarg)
+        elif opt == "-h" or opt == "-?" or opt == "--help":
+            help = True
+        elif opt == "-o":
+            out = optarg
+        elif opt == "--version":
+            print "TRAJTOOLS %s version %s"%(NAME,VERSION)
+            sys.exit(0)
+
+    if len(xpms) == 0:
+        xpms.append(DEFAULT_XPM)
+    
+    if len(dssps) == 0:
+        dssps.append(DEFAULT_DSSP)
+
+    give_header()
+    if help:
+        give_help()
+
+    # PRINT OPTIONS
+    format_file = "%6s  %11s  %-12s  %s"
+    format_opt = "%12s  %8s  %8s  %s"
+
+    print format_file%("Option","Filename","Type","Description")
+    print "------------------------------------------------------------"
+    for dssp in dssps:
+        print format_file%("-d",dssp,"Input, Mult.","DSSP output file")
+    for xpm in xpms:
+        print format_file%("-x",xpm,"Input, Mult.","do_dssp matrix output")
+    print format_file%("-o",out,"Output","pdss file")
+    print
+    print format_opt%("Option", "Type", "Value","Description")
+    print "------------------------------------------------------"
+    print format_opt%("-h","bool",("Yes","No")[help],"Print help information")
+    print
+
+    if help:
+        sys.exit(0)
+
+    # CHECK OPTIONS
+    for i in range(len(dssps)):
+        if not os.path.isfile(dssps[i]):
+            sys.stderr.write("WARNING: file %s not found...skipping\n"%dssps[i])
+            del dssps[i]
+        
+    for i in range(len(xpms)):
+        if not os.path.isfile(xpms[i]):
+            sys.stderr.write("WARNING: file %s not found...skipping\n"%xpms[i])
+            del xpms[i]
+
+    if len(xpms) == 0 and len(dssps) == 0:
+        sys.stderr.write("FATAL ERROR: no input files specified\n\n")
+        sys.exit(2)
+
+    # FINALLY START IMPORTANT STUFF
+    table=[]
+    # parse all DSSPs
+    for i in dssps:
+        pdss=parse_dssp(i)
+        #if len(table) != 0 and len(pdss) != len(table[-1]):
+        #    sys.stderr.write("Warning: file %s does not match other files length...skipping\n"%i)
+        #else:
+        append_pdss(table, pdss)
+    # parse all XPMs
+    for i in xpms:
+        pdss=get_mean(parse_xpm(i), b, e, dt)
+        #if len(table) != 0 and len(pdss) != len(table[-1]):
+        #    sys.stderr.write("Warning: file %s does not match other files length...skipping\n"%i)
+        #else:
+        append_pdss(table, pdss)
+    # write table to stdout
+    fd = file(out, 'w')
+    fd.write(headinfo)
+    fd.writelines(mean_file(table))
+    fd.close()
+            
+# ------------------------------------------
+if __name__ == "__main__": main()

@@ -1,0 +1,63 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Dec  1 12:21:30 2011
+
+@author: teo
+"""
+
+import numpy as np
+from optparse import OptionParser
+
+parser = OptionParser()
+parser.set_usage("Usage: %prog PCSFILE -n PCN [-o DATFILE]")
+parser.add_option("-n","--pcn",help="Principal component to extract",dest="pcn",default=None,type=int)
+parser.add_option("-o","--outfile",help="Output dat file; if not specified, input file basename will be used",dest="outfile",default=None)
+
+(options,args) = parser.parse_args()
+
+
+if len(args) != 1:
+    print parser.get_usage()
+    print "corr2dat: error: a single theseus principal components file must be provided"
+    exit(3)
+    
+if not options.pcn:
+    print parser.get_usage()
+    print "corr2dat: error: the number of the principal component to extract must be provided."
+    exit(3)
+    
+fname = args[0]
+        
+if options.outfile == None:
+    outfile = fname+".dat"
+else:
+    outfile = options.outfile
+                
+#print "Loading ...",
+try:
+    fh = open(fname,'r')
+except:
+    print parser.get_usage()
+    print "wordomdccm2dat: error: File not readable. Exiting ..."
+    exit()
+
+lines = fh.readlines()
+lines.pop(0)
+resn=len(lines)
+
+m = np.zeros((resn,resn),dtype=np.float)
+
+if len(lines[0].strip().split()) < options.pcn:
+    print parser.get_usage()
+    print "corr2dat: error: PC %d not found in file (available PCS: 1-%d)" % (options.pcn, len(lines[1].strip().split()[1:]))
+    exit(3)
+
+for i in range(len(lines[1:])):
+    m[i,i] = float(lines[i].strip().split()[options.pcn])
+try:
+    np.savetxt(outfile,m,fmt="%0.4f")
+except:
+    print parser.get_usage()
+    print "wordomdccm2dat: error: couldn't write output file."
+    exit()

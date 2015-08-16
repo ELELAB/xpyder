@@ -1,0 +1,86 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Dec  1 12:21:30 2011
+
+@author: teo
+"""
+
+import numpy as np
+import sys
+from optparse import OptionParser
+
+def isqrt(x): # Integer square root function
+    if x < 0:
+        raise ValueError('square root not defined for negative numbers')
+    n = int(x)
+    if n == 0:
+        return 0
+    a, b = divmod(n.bit_length(), 2)
+    x = 2**(a+b)
+    while True:
+        y = (x + n//x)//2
+        if y >= x:
+            return x
+        x = y
+
+def issquare(apositiveint): # Pure integer! :) 
+    x = apositiveint // 2
+    seen = set([x])
+    while x * x != apositiveint:
+        x = (x + (apositiveint // x)) // 2
+        if x in seen: 
+            return False
+        seen.add(x)
+    return True
+
+
+parser = OptionParser()
+parser.set_usage("Usage: %prog CORRFILE [-o DATFILE]")
+#parser.add_option("-c","--corrfile",help="Input wordom correlation file file",dest="corr")
+parser.add_option("-o","--outfile",help="Output dat file; if not specified, input file name will be used as basename",dest="outfile",default=None)
+
+(options,args) = parser.parse_args()
+
+
+if len(args) != 1:
+    print parser.get_usage()
+    print "corr2dat: error: a single wordom correlations file must be provided"
+    exit(3)
+fname = args[0]
+        
+if options.outfile == None:
+    outfile = fname+".dat"
+else:
+    outfile = options.outfile
+                
+#print "Loading ...",
+try:
+    fh = open(fname,'r')
+except:
+    print parser.get_usage()
+    print "wordomdccm2dat: error: File not readable. Exiting ..."
+    exit()
+
+lines = fh.readlines()
+#print " Done! File contains %d lines. Please be patient." % len(lines)
+
+resn=0
+while True:
+    if not lines[resn].startswith('\n'):
+        resn+=1
+    else:
+        break
+
+m = np.zeros((resn,resn),dtype=np.float)
+
+for line in lines:
+    if not line.startswith("\n"):
+        tmp = line.strip().split()
+    m[int(tmp[0]),int(tmp[1])] = float(tmp[2])
+try:
+    np.savetxt(outfile,m,fmt="%0.4f")
+except:
+    print parser.get_usage()
+    print "wordomdccm2dat: error: couldn't write output file."
+    exit()

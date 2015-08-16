@@ -1,0 +1,172 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Dec  1 12:21:30 2011
+
+@author: teo
+"""
+
+
+#import re
+import numpy as np
+#import os
+import sys
+from optparse import OptionParser
+
+def parse_resIntFreqs(lines,i,residuesmap,doscale=False):
+    global options
+    global op
+    found = False
+    if lines[i].startswith(staResInt):
+        intfreqs = np.zeros([len(residuesmap.keys()),len(residuesmap.keys())],dtype=float)
+        j=2
+        while True:
+            if lines[i+j].startswith("=="):
+                i+=j+1
+                break
+            tmp = lines[i+j].strip().split()
+            j+=1
+            if float(tmp[0]) != options.imin:
+                continue
+            intfreqs[residuesmap[tmp[1]],residuesmap[tmp[2]]] = float(tmp[4])
+            intfreqs[residuesmap[tmp[2]],residuesmap[tmp[1]]] = float(tmp[4])
+            found = True
+        if found:
+            if doscale:
+                intfreqs = intfreqs/max(intfreqs.flatten())
+            try:
+                np.savetxt(options.resintfreqs,intfreqs,"%10.4f")
+            except:
+                print op.get_usage()
+                print "wordompsn2dat: error: couldn't write file %s." % options.resintfreqs
+        else:
+            print op.get_usage()
+            print "wordompsn2dat: error: the specified Imin value was not found. Matrix will not be written."
+    return i
+
+def parse_avgIntStr(lines,i,residuesmap,doscale=False):
+    global options
+    global op
+    if lines[i].startswith(avgIntStr):
+        isms = np.zeros([len(residuesmap.keys()),len(residuesmap.keys())],dtype=float)
+        j=2
+        while True:
+            if lines[i+j].startswith("=="):
+                 i+=j+1
+                 break
+            tmp = lines[i+j].strip().split()
+            isms[residuesmap[tmp[0]],residuesmap[tmp[1]]] = float(tmp[2])
+            isms[residuesmap[tmp[1]],residuesmap[tmp[0]]] = float(tmp[2])            
+            j+=1
+        if doscale:
+            isms = isms/max(isms.flatten())
+        try:
+            np.savetxt(options.avgintstr,isms,"%10.4f")
+        except:
+            print op.get_usage()
+            print "wordompsn2dat: error: couldn't write %s." % options.resintfreqs
+    return i
+
+def ascii_residuesmap(residuesmap):
+    out="""+-------------------+"
+|   Mapping table   |
+|PDB Res. | matrix i|
+|---------+---------|\n"""
+    for k,v in residuesmap.iteritems():
+        out+="|"+str.rjust(str(k),9)+"|"+str.rjust(str(v),9)+"|\n"
+    out+="+---------+---------+"
+    return out
+
+isms = []
+avgintstrs = []
+residuesmap= {}
+dumps = []
+
+segInfo = "*** Seg Info ***"
+seqInfo = "*** Seq ***"
+avgIntStr = "*** Averaged Interaction Strength ***"
+staResInt = "*** Stable Residue Interactions ***"
+hubsFreq = "*** Hubs Frequencies ***"
+hubsCorr= "*** Hubs Correlations ***"
+stabClusComp = "*** Stable Cluster Compositions ***"
+largClusSize = "*** Largest Cluster Size ***"
+
+op = OptionParser()
+
+op.set_usage("Usage: %prog AVGPSN [-f FREQSFILE | -s AVGSTRFILE] [-m IMIN] [-av]")
+
+op.add_option("-m","--imin",dest="imin",help="Imin value selected for data dump",type=float)
+op.add_option("-f","--resintfreqs", dest="resintfreqs",help="write frequency matrix at given Imin in file RESINTFREQS")
+op.add_option("-s","--avgintstr",dest="avgintstr",help="write average interaction strength matrix in file AVGINTSTR")
+op.add_option("-a","--scale",dest="doscale",action="store_true",help="scale matrix values in the [0;1] range")
+op.add_option("-v","--verbose",dest="verbose",action="store_true",help="verbose mode")
+
+(options,args) = op.parse_args()
+
+# unrecoverable errors
+
+
+if len(args) > 1:
+    print op.get_usage()
+    print "error: wordompsn2dat: More than one avgpsn file specified. Exiting..."
+    exit()
+    
+if len(args) == 0:
+    print op.get_usage()
+    print "error: wordompsn2dat: No avgpsn file specified. Exiting..."
+    exit()
+
+if options.resintfreqs and not options.imin:
+    print op.get_usage()
+    print "error: wordompsn2dat: an Imin value (option -m) must be specified for the residue interaction frequency matrix conversion. Exiting..."
+    exit()
+
+if not options.resintfreqs and not options.avgintstr:
+    print op.get_usage()
+    print "error: wordompsn2dat: you must specify at least one of -f or -s"
+    exit()
+    
+if options.avgintstr:
+    dumps.append(parse_avgIntStr)
+if options.resintfreqs:
+    dumps.append(parse_resIntFreqs)
+    
+fname = args[0]
+
+if options.verbose: sys.stdout.write("Loading ... ")
+try:
+    fh = open(fname,'r')
+except:
+    print op.get_usage()
+    print "wordompsn2dat: error: could not read input file. Exiting ..."
+    exit()
+
+lines = fh.readlines()
+
+if options.verbose: print " Done! File contains %d lines. Please be patient." % len(lines)
+
+stop = False
+i=0
+while not stop:
+    if lines[i].startswith(seqInfo):
+        j=1
+        while True:
+            if lines[i+j].startswith("=="):
+                stop = True
+                break
+            tmp = lines[i+j].strip().split()
+            residuesmap[tmp[1]] = j-1
+            j+=1
+    i+=1            
+
+if options.verbose: print ascii_residuesmap(residuesmap)
+if options.verbose and options.doscale: print "Scaling values in range [0;1]"
+
+i=0
+while i < len(lines):
+    for pf in dumps:
+        i = pf(lines,i,residuesmap,doscale=options.doscale)
+    i+=1     
+if options.verbose: sys.stdout.write("Done!\n")
+
+

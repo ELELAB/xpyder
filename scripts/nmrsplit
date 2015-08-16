@@ -1,0 +1,42 @@
+#!/usr/bin/python
+
+VERSION=0.1
+
+from Bio.PDB import *
+from sys import argv
+from os.path import basename,splitext
+
+parser = PDBParser()
+io = PDBIO()
+
+usage="""nmrsplit (c) Matteo Tiberti 2012 <matteo.tiberti@gmail.com>
+Usage: nmrsplit file1.pdb [file2.pdb ...]"""
+
+help="""nmrsplit splits a multi-model PDB files into
+single PDB files, each containing a single model. 
+One or more multi-model files may be specified as input."""
+
+if len(argv) == 1:
+    print usage
+    exit()
+
+if "-h" in argv or "--help" in argv:
+    print usage+"\n"
+    print help
+    exit()
+
+for fname in list(set(argv[1:])):
+    try:
+        struc = parser.get_structure(splitext(basename(fname))[0],fname)
+    except IOError:
+        print "WARNING: file %s not found or readeable. It will be skipped." % fname
+        continue
+    if len(struc.child_list) == 0:
+        print "WARNING: file %s didn't contain understandable models. It will be skipped." % fname
+        continue
+    print "Splitting file %s: %d models" % (fname, len(struc.child_list))
+    for model in struc:
+  	tmpstruc = Structure.Structure("tmpstruc")
+        tmpstruc.add(model)
+        io.set_structure(tmpstruc)
+        io.save("%s_model%s.pdb" % (struc.id,model.id))
