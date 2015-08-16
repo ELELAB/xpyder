@@ -1,0 +1,344 @@
+#!/usr/bin/python
+
+# deltamat, a software to compare square symmetrical matrices.
+# Copyright (C) 2015 Matteo Tiberti <matteo.tiberti@gmail.com>, 
+# Elena Papaleo <elena.papaleo.78@gmail.com>,
+# Gaetano Invernizzi <tatoxic@gmail.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#
+#
+# If you're using deltamat for your scientific work, please cite the 
+# following paper:
+# 
+# Elena Papaleo, Matteo Tiberti, Gaetano Invernizzi,
+# A (dis)similarity index to compare correlated motions in molecular simulations
+# Submitted, 2015
+
+
+
+import numpy as np
+from os.path import splitext
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+from matplotlib.backends.backend_pdf import PdfPages
+import argparse
+
+def load_data(fnames):
+    data = []
+    for fname in fnames:
+        try:
+            data.append(np.loadtxt(fname))
+        except:
+            print "ERROR: Couldn't load file %s. Exiting..." % fname
+            exit(1)
+        if np.isnan(np.min(data[-1])):
+            print "ERROR: matrix %s contains NAN"%names[i]
+
+    return data
+
+def deltamatrix(names, delta_function, *args):
+    deltamat = np.zeros((len(names),len(names)))
+    for i in range(len(names)):
+        for j in range(i+1):
+            deltamat[i,j] = delta_function(i,j,*args)
+            deltamat[j,i] = delta_function(j,i,*args)
+    return deltamat
+
+def print_deltamatrix(header, shortnames, deltamat):
+    print "%s\n---------------------------------------------------------" % header
+    print "\t"+"\t".join(shortnames)
+
+    for i in range(len(shortnames)):
+        print shortnames[i]+"\t",
+        for j in range(i+1):
+            print  "%2.3f\t" % deltamat[i,j],
+        print ""
+    print ""
+        
+def max_difference(i,j,data):
+    diffmat = data[i]-data[j]
+    return np.max(np.abs(diffmat.flat))
+
+def frob_norm(i,j,data):
+    return np.linalg.norm(data[i]-data[j], ord='fro')
+
+def normalized_frob_norm(i,j,data,norm_factor):
+    return np.linalg.norm(data[i]-data[j], ord='fro') / norm_factor
+
+def rmsd(i,j,data):
+    return np.sqrt(np.sum( (data[i][np.triu_indices_from(data[i],k=1)] - data[j][np.triu_indices_from(data[j],k=1)])**2)/data[i][np.triu_indices_from(data[i],k=1)].shape[0])
+
+parser = argparse.ArgumentParser(description='Compute distance measures between matrices.')
+
+parser.add_argument("-min", type=float, default=0.0, dest='min', help="Mininun expected matrix value")
+parser.add_argument("-max", type=float, default=1.0, dest='max', help="Maximum expected matrix value")
+parser.add_argument("files", nargs='+', help='alternate matrix files and names (matrix1 name1 matrix2 name2 ...)')
+ 
+args =  parser.parse_args()
+
+argv = args.files
+
+if len(argv) < 4:
+    print "ERROR: not enough arguments"
+    exit(1)
+
+if len(argv) % 2 != 0:
+    print "ERROR: odd number of arguments."
+    exit(1)
+    
+    # files: argv 1, 3, 5 ... n-1
+    # names: argv 2, 4, 6 ... n  
+
+files = [argv[i]  for i in range(0,len(argv),2) ]
+names = [argv[i] for i in range(1,len(argv),2) ]
+shortnames = [i[:6] for i in names]
+setsn=len(names)/4
+if len(names) % 4 > 0: setsn+=1
+
+data = load_data(files)
+
+try:
+    for i in range(len(data)):
+        assert data[i].shape[0] == data[i].shape[1]
+        for j in range(i):
+            assert data[i].shape[0] == data[j].shape[0]
+            assert data[i].shape[1] == data[j].shape[1]
+            assert data[i].shape[0] == data[j].shape[1]
+except:
+    print "ERROR: Matrices have different size. Exiting..."
+    exit(1)
+
+msize=data[0].shape[0]
+diffmatlen=len(data)*(len(data)-1)/2
+
+print "Loaded %d matrices (%dx%d); %d differences will be computed" % (len(data),data[0].shape[0],data[0].shape[1],diffmatlen)
+
+diffmats={}
+for i in names: diffmats[i] = {}
+for i in range(len(names)):
+    for j in range(i+1):
+        diffmats[names[i]][names[j]] = data[i]-data[j]
+        diffmats[names[j]][names[i]] = data[j]-data[i]
+
+max_delta_mat = deltamatrix(names, max_difference, data)
+print_deltamatrix("Maximum absolute difference between matrices", shortnames, max_delta_mat)
+
+frob_norm_mat = deltamatrix(names, frob_norm, data)
+print_deltamatrix("Frobenius distance between matrices", shortnames, frob_norm_mat)
+
+norm_factor = np.linalg.norm(np.full(data[0].shape, args.max)-np.full(data[1].shape, args.min), ord='fro')
+norm_frob_norm_mat = deltamatrix(names, normalized_frob_norm, data, norm_factor)
+print_deltamatrix("Normalized Frobenius distance between matrices (max: %.1f, min=%.1f, norm. factor: %.1f"% (args.max, args.min, norm_factor), shortnames, norm_frob_norm_mat)
+
+max_mat = np.full(data[0].shape, args.max)
+min_mat = np.full(data[0].shape, args.min)
+np.fill_diagonal(max_mat,0.0)
+np.fill_diagonal(min_mat,0.0)
+norm_factor_nodiag = np.linalg.norm(max_mat - min_mat, ord='fro')
+norm_nodiag_frob_norm_mat = deltamatrix(names, normalized_frob_norm, data, norm_factor_nodiag)
+print_deltamatrix("Normalized Frobenius distance between matrices, excluding diagonal (max: %.1f, min=%.1f, norm. factor: %.1f"% (args.max, args.min, norm_factor_nodiag),shortnames, norm_nodiag_frob_norm_mat)
+
+rmsd_mat = deltamatrix(names, rmsd, data)
+print_deltamatrix("RMSD between matrices", shortnames, rmsd_mat)
+
+"""
+print         "Maximum absolute difference between matrices\n---------------------------------------------------------"
+print          "\t"+"\t".join(shortnames)
+for i in range(len(names)):
+    print         shortnames[i]+"\t",
+    for j in range(i+1):
+        diffmats[names[i]][names[j]] = data[i]-data[j]
+        diffmats[names[j]][names[i]] = data[j]-data[i]
+        print         "%2.3f\t"%max(np.abs(diffmats[names[i]][names[j]].flat)),
+    print         ""
+        diffmats[names[i]][names[j]] = data[i]-data[j]
+        diffmats[names[j]][names[i]] = data[j]
+"""
+
+
+
+pp = PdfPages('distributions.pdf')
+k=0
+for sets in range(setsn):
+    fig, axes = plt.subplots(nrows=2, ncols=2)
+    z=0
+    for i in range(sets*4,(sets+1)*4):
+        if i >= len(names):
+            continue
+        ax = axes.flat[z]
+        x = [j for j in data[k].flat]
+        sums = []
+        n, bins, patches = ax.hist(x, 50, normed=0, facecolor='orange', alpha=0.75, histtype='bar')
+        ybs = []
+        for b in bins:
+            ybs.append(np.sum(data[k]>=b))
+        ax.plot(bins, ybs, '-b')
+        ax.set_title(names[i])
+        ax.set_ylim(0,4000)
+        ax.set_xlim(args.min, args.max)
+        z+=1
+        k+=1
+    plt.tight_layout()
+    plt.savefig(pp,format='pdf')
+pp.close()
+
+k=0
+pp=PdfPages('full-distributions.pdf')
+for sets in range(setsn):
+    fig, axes = plt.subplots(nrows=2, ncols=2)
+    z=0
+    for i in range(sets*4,(sets+1)*4):
+        if i >= len(names):
+            continue
+        ax = axes.flat[z]
+        x = [j for j in data[k].flat]
+        sums = []
+        n, bins, patches = ax.hist(x, 50, normed=0, facecolor='orange', alpha=0.75, histtype='bar')
+        ybs = []
+        for b in bins:
+            ybs.append(np.sum(data[k]>=b))
+        ax.plot(bins, ybs, '-b')
+	ax.set_xticks(np.arange(args.min,args.max,0.1))
+        ax.set_xticklabels(["%.1f" % s for s in np.arange(args.min,args.max,0.1)],rotation=90)
+	ax.grid(which='major', axis='x')
+        ax.set_title(names[i])
+        ax.tick_params(axis='x', labelsize=10)
+        ax.set_xlim(args.min, args.max)
+        z+=1
+        k+=1
+    plt.tight_layout()
+    plt.savefig(pp,format='pdf')
+pp.close()
+
+k=0
+pp = PdfPages('matrices.pdf')
+for sets in range(setsn):
+    fig, axes = plt.subplots(nrows=2, ncols=2)
+    z=0
+    for i in range(sets*4, (sets+1)*4):
+        if i >= len(names):
+            continue
+        ax = axes.flat[z]
+        res = ax.imshow(data[i], cmap=plt.cm.jet, interpolation='nearest',vmin=args.min,vmax=args.max)
+        ax.set_title(names[i])
+        z+=1
+    cax = fig.add_axes([0.9, 0.1, 0.03, 0.8])
+    fig.colorbar(res, cax=cax)
+    plt.tight_layout()
+    plt.savefig(pp,format='pdf')
+pp.close()
+
+        
+
+for i in range(len(data)):
+    assert data[i].shape[0] == data[i].shape[1]
+    for j in range(i):
+        assert data[i].shape[0] == data[j].shape[0]
+        assert data[i].shape[1] == data[j].shape[1]
+        assert data[i].shape[0] == data[j].shape[1]
+
+
+"""
+print         "Maximum absolute difference between matrices\n---------------------------------------------------------"
+print          "\t"+"\t".join(shortnames)
+for i in range(len(names)):
+    print         shortnames[i]+"\t",
+    for j in range(i+1):
+        diffmats[names[i]][names[j]] = data[i]-data[j]
+        diffmats[names[j]][names[i]] = data[j]-data[i]
+        print         "%2.3f\t"%max(np.abs(diffmats[names[i]][names[j]].flat)),        
+    print         ""
+
+print         "\nFrobenius distance between matrices\n---------------------------------------------------------"
+print          "\t"+"\t".join(shortnames)
+for i in range(len(names)):
+    print         shortnames[i]+"\t",
+    for j in range(i+1):
+        print         "%2.3f\t"%np.linalg.norm(data[i]-data[j], ord='fro'),
+    print         ""
+
+norm_factor = np.linalg.norm(np.full(data[0].shape, args.max)-np.full(data[1].shape, args.min), ord='fro')
+print         "\nNormalized Frobenius distance between matrices (max: %.1f, min=%.1f, norm. factor: %.1f \n---------------------------------------------------------" % (args.max, args.min, norm_factor)
+print          "\t"+"\t".join(shortnames)
+
+for i in range(len(names)):
+    print         shortnames[i]+"\t",
+    for j in range(i+1):
+        print         "%2.3f\t" % (np.linalg.norm(data[i]-data[j], ord='fro')/ norm_factor),
+    print ""
+
+
+max_mat = np.full(data[0].shape, args.max)
+min_mat = np.full(data[0].shape, args.min)
+np.fill_diagonal(max_mat,0.0)
+np.fill_diagonal(min_mat,0.0)
+norm_factor = np.linalg.norm(max_mat - min_mat, ord='fro')
+print         "\nNormalized Frobenius distance between matrices excluding diagonals (max: %.1f, min=%.1f, norm. factor: %.1f \n---------------------------------------------------------" % (args.max, args.min, norm_factor)
+print          "\t"+"\t".join(shortnames)
+
+for i in range(len(names)):
+    print         shortnames[i]+"\t",
+    for j in range(i+1):
+
+        print         "%2.3f\t" % (np.linalg.norm(data[i]-data[j], ord='fro')/ norm_factor),
+    print         ""
+
+print         "\nRMSD between matrices\n---------------------------------------------------------"
+print          "\t"+"\t".join(shortnames)
+for i in range(len(names)):
+    print         shortnames[i]+"\t",
+    for j in range(i+1):
+        print         "%2.3f\t"%np.sqrt(np.sum( (data[i][np.triu_indices_from(data[i],k=1)] - data[j][np.triu_indices_from(data[j],k=1)])**2)/data[i][np.triu_indices_from(data[i],k=1)].shape[0]),
+    print         ""
+"""
+
+
+diffsarray = [(i,j) for i in range(len(names)) for j in range(i)]
+
+
+pp = PdfPages('delta_matrices.pdf')
+for sets in range(setsn):
+    fig, axes = plt.subplots(nrows=2, ncols=2)
+    z=0
+    for i,j in diffsarray[4*sets:4*(sets+1)]:
+        ax = axes.flat[z]   
+        ax.set_title("%s - %s" % (names[i],names[j]))
+        res = ax.imshow(diffmats[names[i]][names[j]], cmap=plt.cm.bwr, interpolation='nearest',vmin=args.min-args.max, vmax=args.max-args.min)
+        z+=1
+    cax = fig.add_axes([0.9, 0.1, 0.03, 0.8])
+    fig.colorbar(res, cax=cax)
+    plt.tight_layout()
+    plt.savefig(pp, format="pdf")
+pp.close()
+
+pp = PdfPages('delta_distributions.pdf')
+for sets in range(setsn):
+    fig, axes = plt.subplots(nrows=2, ncols=2)
+    z=0
+    for i,j in diffsarray[4*sets:4*(sets+1)]:
+        x=diffmats[names[i]][names[j]].flat
+        ax = axes.flat[z]   
+        ax.set_title("%s - %s" % (names[i],names[j]))
+        ax.set_xlim(args.min-args.max, args.max-args.min)
+        n, bins, patches = ax.hist(x, 100, normed=0, facecolor='orange', alpha=0.75, histtype='bar')
+        z+=1
+    plt.tight_layout()
+    plt.savefig(pp, format="pdf")
+pp.close()
+        
+

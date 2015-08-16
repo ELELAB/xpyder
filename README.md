@@ -4,7 +4,7 @@ xPyder is a PyMOL plugin to analyze and visualize on the 3D structure dynamical 
 
 # Download
 
-The xPyder binary installers for Linux (32 or 64 bit), Windows and OS X can be downloaded from our github repository (https://github.com/ELELAB/xpyder ), where you can find:
+The xPyder binary installers for Linux (32 or 64 bit), Windows and OS X can be downloaded from our github repository [github repository](https://github.com/ELELAB/xpyder), where you can find:
 
 * the installation packages for Windows, Linux and OS X, as well as a tarball package inside the "packages" directory
 * the xPyder user manual under the "docs" directory
@@ -28,7 +28,7 @@ If you use xPyder in a scientific publication please cite the original source:
 
 If you use deltamat for your scientific work, please cite:
 
-`A (dis)similarity index to compare correlated motions in molecular simulations`
+`A (dis)similarity index to compare correlated motions in molecular simulations.`
 `Matteo Tiberti, Gaetano Invernizzi and Elena Papaleo`
 `Accepted for publication on JCTC`
 
