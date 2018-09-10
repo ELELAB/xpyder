@@ -1,0 +1,15 @@
+[Core]
+Name = Sequence Distance
+Module = SequenceFilterPlugin
+
+[Documentation]
+Author = Matteo Tiberti
+Version = 0.1
+Website = 
+Description = Filters correlations on the basis of sequence distance.
+
+[Provides]
+
+[Depends]
+get_calphas =
+

@@ -1,0 +1,14 @@
+[Core]
+Name = Matrix values
+Module = CorrelationEntityFilterPlugin
+
+[Documentation]
+Author = Marco Pasi
+Version = 0.1
+Website = 
+Description = Computes and filters correlations on the basis of 3D distance.
+
+[Provides]
+
+[Depends]
+

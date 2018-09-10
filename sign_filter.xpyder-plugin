@@ -1,0 +1,15 @@
+[Core]
+Name = Sign 
+Module = SignFilterPlugin
+
+[Documentation]
+Author = Matteo Tiberti
+Version = 0.1
+Website = 
+Description = Filters correlations on the basis of sign
+
+[Provides]
+
+[Depends]
+sign_filter =
+

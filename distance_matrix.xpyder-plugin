@@ -1,0 +1,17 @@
+[Core]
+Name = Distance Matrix
+Module = Distance3DFilterPlugin
+
+[Documentation]
+Author = Marco Pasi
+Version = 0.1
+Website = 
+Description = Computes and filters correlations on the basis of 3D distance.
+
+[Provides]
+distance_matrix = get_dm
+
+[Depends]
+get_calphas =
+parse_dat =
+

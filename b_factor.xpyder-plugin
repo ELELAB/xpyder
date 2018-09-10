@@ -1,0 +1,14 @@
+[Core]
+Name = B Factor
+Module = BFactorPlugin
+
+[Documentation]
+Author = Marco Pasi
+Version = 0.1
+Website = 
+Description = Computes and filters correlations on the basis of the atoms' B factor.
+
+[Provides]
+
+[Depends]
+get_calphas =

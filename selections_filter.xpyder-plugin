@@ -1,0 +1,16 @@
+[Core]
+Name = Selections 
+Module = SelectionsFilterPlugin
+
+[Documentation]
+Author = Matteo Tiberti, Marco Pasi
+Version = 0.2
+Website = 
+Description = Filters correlations on the basis of one or two pymol selections.
+
+[Provides]
+
+[Depends]
+get_calphas =
+get_objects_names = 
+

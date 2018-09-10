@@ -1,0 +1,18 @@
+[Core]
+Name = Secondary Structure 
+Module = SecondaryStructureFilterPlugin
+
+[Documentation]
+Author = Matteo Tiberti
+Version = 0.1
+Website = 
+Description = Computes and filters correlations on the basis of 3D distance.
+
+[Provides]
+secondary_structure = get_ss
+
+[Depends]
+distance_matrix = 
+get_reference =
+get_idxs = 
+get_calphas = 
