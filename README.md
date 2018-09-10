@@ -28,10 +28,9 @@ If you use xPyder in a scientific publication please cite the original source:
 
 If you use deltamat for your scientific work, please cite:
 
-`A (dis)similarity index to compare correlated motions in molecular simulations.`
-`Matteo Tiberti, Gaetano Invernizzi and Elena Papaleo`
-`Accepted for publication on JCTC`
-
+(Dis)similarity Index To Compare Correlated Motions in Molecular Simulations
+Matteo Tiberti, Gaetano Invernizzi, and Elena Papaleo
+Journal of Chemical Theory and Computation 2015 11 (9), 4404-4414
 
 # See also
 
