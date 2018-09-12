@@ -317,7 +317,7 @@ matplotlib libraries
 \begin_inset Formula $\geq$
 \end_inset
 
-1.1 
+ 2.0 
 \begin_inset Newline newline
 \end_inset
 
@@ -353,7 +353,7 @@ networkx libraries
 \uwave default
 \noun default
 \color inherit
- 1.5 (already included in the installation - you don't need to download them)
+ 2.0
 \end_layout
 
 \begin_layout Itemize
