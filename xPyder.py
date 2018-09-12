@@ -10,7 +10,7 @@
 #  (at your option) any later version.
 # 
 
-VERSION=1.0
+VERSION=1.1
 
 ### Installation-dependent variables and initializations
 import sys
