@@ -1,5 +1,8 @@
 # xPyder
 
+IMPORTANT: The tool is no longer maintained by us and we are looking for solutions to replace its functionalities within Pyinteraph2: https://github.com/ELELAB/pyinteraph2 
+
+
 xPyder is a PyMOL plugin to analyze and visualize on the 3D structure dynamical cross-correlation matrices (DCCM), linear mutual information (LMI), communication propensities (CP), intra- and inter-molecular interactions (e.g. PSN), and more, to produce highly customizable publication-quality images. xPyder identifies networks (using concepts from graph theory, such as hubs and shortest path searching), compares matrices and focuses the analysis on relevant information by allowing extensive data filtering. xPyder includes a user-expandable plugin system that takes advantage of structural and dynamical information, contributing to bridge the gap between dynamical and mechanical properties at the molecular level.
 
 # Download
